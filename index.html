@@ -1,0 +1,280 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='initial-scale=1'>
+    <style>
+#keyboard {
+  width: 100%
+}
+
+#leftHand {
+    transform: scaleX(-1);
+}
+#rightHand {
+
+}
+
+.finger{
+    /*hide all by default*/
+    display:none
+}
+
+.active{
+    display: block;
+    fill   : red;
+    stroke : blue;
+}
+
+.press{
+    display: block;
+    fill   : rgb(255, 165, 47);
+    stroke : rgb(255, 165, 47);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+
+  /* prevent the select UI */
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select:none;
+  user-select: none;
+}
+</style>
+</head>
+<body>
+    <table align="center">
+        <tr>
+            <td colspan="2">
+                <table width="100%"><tr>
+                    <td align="left">
+                        Score: <span id="score">0</span>
+                    </td>
+                    <td align="center">
+                        Correct Pourcentage: <span id="percent">0</span>%
+                    </td>
+                    <td align="right">
+                        Temps: <span id="timer">0</span>
+                    </td>
+                </tr></table>
+            </td>
+        </tr>
+        <tr>
+            <td colspan=2 id="keyboard"></td>
+        </tr>
+        <tr>
+            <td id="leftHand"></td>
+            <td id="rightHand"></td>
+        </tr>
+    </table>
+    <script>
+        function loadSvgToDom(url, domSelector){
+            return fetch( url )
+                .then(response => response.text())
+                .then(( svg ) => {
+                    document.querySelector(domSelector).innerHTML = svg
+              })
+        }
+
+        function setFingerId( domSelector, hand ){
+            const dom = document.querySelector( domSelector );
+            if( ! dom )
+                return;
+            
+            const setId = function( cls ){
+                dom.querySelector( `.${cls}` ).id = `${hand}-${cls}`;    
+            }
+
+            setId("thumb");
+            setId("index");
+            setId("middle");
+            setId("ring");
+            setId("pinky");
+        }
+
+        /*physical mapping: character => selector*/
+        const physicalKeyboard = {
+            "&" : {key: "#K_kb2b", hand:"left-pinky"},
+            "é" : {key: "#K_kb2c", hand:"left-ring"},
+            '"' : {key: "#K_kb2d", hand:"left-middle"},
+            "'" : {key: "#K_kb2e", hand:"left-index"},
+            "(" : {key: "#K_kb2f", hand:"left-index"},
+            "-" : {key: "#K_kb2g", hand:"left-index"},
+            "è" : {key: "#K_kb2h", hand:"right-index"},
+            "_" : {key: "#K_kb2i", hand:"right-index"},
+            "ç" : {key: "#K_kb2j", hand:"right-middle"},
+            "à" : {key: "#K_kb2k", hand:"right-ring"},
+            ")" : {key: "#K_kb2l", hand:"right-pinky"},
+            "=" : {key: "#K_kb2m", hand:"right-pinky"},
+            "a" : {key: "#K_kb3b", hand:"left-pinky"},
+            "z" : {key: "#K_kb3c", hand:"left-ring"},
+            "e" : {key: "#K_kb3d", hand:"left-middle"},
+            "r" : {key: "#K_kb3e", hand:"left-index"},
+            "t" : {key: "#K_kb3f", hand:"left-index"},
+            "y" : {key: "#K_kb3g", hand:"right-index"},
+            "u" : {key: "#K_kb3h", hand:"right-index"},
+            "i" : {key: "#K_kb3i", hand:"right-middle"},
+            "o" : {key: "#K_kb3j", hand:"right-ring"},
+            "p" : {key: "#K_kb3k", hand:"right-pinky"},
+            "^" : {key: "#K_kb3l", hand:"right-pinky"},
+            "$" : {key: "#K_kb3m", hand:"right-pinky"},
+            "q" : {key: "#K_kb4b", hand:"left-pinky"},
+            "s" : {key: "#K_kb4c", hand:"left-ring"},
+            "d" : {key: "#K_kb4d", hand:"left-middle"},
+            "f" : {key: "#K_kb4e", hand:"left-index"},
+            "g" : {key: "#K_kb4f", hand:"left-index"},
+            "h" : {key: "#K_kb4g", hand:"right-index"},
+            "j" : {key: "#K_kb4h", hand:"right-index"},
+            "k" : {key: "#K_kb4i", hand:"right-middle"},
+            "l" : {key: "#K_kb4j", hand:"right-ring"},
+            "m" : {key: "#K_kb4k", hand:"right-pinky"},
+            "ù" : {key: "#K_kb4l", hand:"right-pinky"},
+            "`" : {key: "#K_kb4m", hand:"right-pinky"},
+            "<" : {key: "#K_kb5b", hand:"left-pinky"},
+            "w" : {key: "#K_kb5c", hand:"left-pinky"},
+            "x" : {key: "#K_kb5d", hand:"left-ring"},
+            "c" : {key: "#K_kb5e", hand:"left-middle"},
+            "v" : {key: "#K_kb5f", hand:"left-index"},
+            "b" : {key: "#K_kb5g", hand:"left-index"},
+            "n" : {key: "#K_kb5h", hand:"right-index"},
+            "," : {key: "#K_kb5i", hand:"right-index"},
+            ";" : {key: "#K_kb5j", hand:"right-middle"},
+            ":" : {key: "#K_kb5k", hand:"right-ring"},
+            "!" : {key: "#K_kb5l", hand:"right-pinky"},
+            /*last*/
+            " ": {key: "#K_kb5d", hand: "left-thumb"},
+            /*other*/
+            "Tab":         {key: "#K_kb3a", hand: "left-pinky"},
+            "CapLock":        {key: "#K_kb4a", hand: "left-pinky"},
+            "left-shift":  {key: "#K_kb5a", hand: "left-pinky"},
+            "left-ctrl":   {key: "#K_kb6a", hand: "left-pinky"},
+            "left-alt":    {key: "#K_kb6c", hand: "left-thumb"},
+            "alt-gr" :     {key: "#K_kb6k", hand: "right-thumb"},
+            "right-shift": {key: "#K_kb5m", hand: "right-pinky"},
+            "Enter" :      {key: "#K_kb3n", hand: "right-middle"},
+            "Backspace":   {key: "#K_kb2n", hand: "right-middle"}
+        }
+
+        function toggleActive( sel, cls ){
+            const dom = document.querySelector(sel);
+            if( dom )
+                dom.classList.toggle( cls? cls: "press" );
+            else
+                console.error("Notfound " + sel );
+        }
+        
+        function toggleKey( char, cls ){
+            const key = physicalKeyboard[ char ];
+            if( key ){
+                toggleActive(    key.key, cls);
+                toggleActive("#"+key.hand, cls); 
+            }
+        }
+
+        function _getChar(){
+            const keys = Object.keys( physicalKeyboard );
+            const rand = Math.floor(Math.random() * 27);
+            return keys[rand];
+        }
+
+        /*random a-z + space*/
+        function getChar(){
+            const rand = Math.floor(Math.random() * 27);
+            if( rand === 26 )
+                return " "
+            return String.fromCharCode(65 + rand).toLocaleLowerCase(); //97 = 'a'
+        }
+
+        function updateScoreboard(){
+          document.querySelector("#score").innerHTML=game.currentScore;
+          document.querySelector("#percent").innerHTML=Math.round(game.currentScore*100/(game.currentFail+game.currentScore)); 
+        }
+        
+        function press( lastKey ){
+            if( lastChar )
+                toggleKey( lastKey )
+
+            const i = randomChar();
+            
+            setTimeout( press, 500, key );
+        }
+
+        const game = {
+            currentKey: getChar(),
+            currentScore: 0,
+            currentFail : 0,
+            startTime: null
+        }
+
+        
+        function speak( txt ){
+            const msg = new SpeechSynthesisUtterance( txt );
+            msg.lang = "fr-fr";
+            window.speechSynthesis.speak(msg);
+        }
+
+        function startTimeCounter(){
+            setInterval(function(){
+                if( game.startTime == null )
+                    return;
+                const msec = (new Date()).getTime() - game.startTime;
+                document.querySelector("#timer").innerHTML = Math.round(msec/1000);
+            }, 1000)
+        }
+
+        function startGame(){
+            toggleKey(game.currentKey, "active");
+
+            window.addEventListener('keyup', function(e) {
+                e.preventDefault();
+
+                speak( e.key );
+
+                //init time
+                if( game.startTime == null )
+                    game.startTime = (new Date()).getTime();
+
+                if( e.key === game.currentKey ){
+                    toggleKey(game.currentKey, "active");
+                    //
+                    game.currentScore ++;
+                    //next key
+                    game.currentKey = getChar();
+                    toggleKey(game.currentKey, "active");
+                }else
+                    game.currentFail ++;
+
+                updateScoreboard();
+            });
+        }
+
+        function captureKeypress(){
+            // keyboard handling
+            window.addEventListener('keyup', function(e) {
+                e.preventDefault();
+                toggleKey( e.key );
+            });
+
+            window.addEventListener('keydown', function(e) {
+                e.preventDefault();
+                toggleKey( e.key );
+                console.log( e.key )
+            });
+        }
+
+
+
+        loadSvgToDom("img/keyboard/azerty.svg", "#keyboard")
+            .then( () => loadSvgToDom("img/five-fingers.svg", "#leftHand") )
+            .then( () => loadSvgToDom("img/five-fingers.svg", "#rightHand") )
+            .then( () => setFingerId("#leftHand", "left" ))
+            .then( () => setFingerId("#rightHand", "right" ))
+            .then( captureKeypress )
+            .then( startGame )
+            .then( startTimeCounter )
+            //.then( press )
+    </script>
+  </body>
+</html>
